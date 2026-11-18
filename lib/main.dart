@@ -8,7 +8,7 @@ class ChatLabApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AI Chat — 실습 1',
+      title: 'AI Chat — 실습 4',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -44,6 +44,12 @@ class _ChatPageState extends State<ChatPage> {
   final List<ChatMessage> _messages = [];
 
   bool _isLoading = false;
+  bool _hasError = false;
+
+  String? _failedMessage;
+
+  // 실습용: 첫 번째 요청은 실패하도록 설정
+  bool _firstRequest = true;
 
   void _send() {
     final text = _controller.text.trim();
@@ -61,13 +67,45 @@ class _ChatPageState extends State<ChatPage> {
       );
 
       _isLoading = true;
+      _hasError = false;
+      _failedMessage = text;
     });
 
     _controller.clear();
 
+    _requestReply(text);
+  }
+
+  void _retry() {
+    if (_failedMessage == null || _isLoading) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    _requestReply(_failedMessage!);
+  }
+
+  void _requestReply(String text) {
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
 
+      // 第一次请求模拟失败
+      if (_firstRequest) {
+        _firstRequest = false;
+
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+
+        return;
+      }
+
+      // Retry 后模拟请求成功
       setState(() {
         _messages.add(
           ChatMessage(
@@ -77,6 +115,8 @@ class _ChatPageState extends State<ChatPage> {
         );
 
         _isLoading = false;
+        _hasError = false;
+        _failedMessage = null;
       });
     });
   }
@@ -93,9 +133,8 @@ class _ChatPageState extends State<ChatPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Chat — 실습 1'),
+        title: const Text('AI Chat — 실습 4'),
       ),
-
       body: SafeArea(
         child: Column(
           children: [
@@ -132,20 +171,83 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
 
+            // Loading
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(12),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    'AI가 답변을 작성하고 있습니다...',
-                    style: TextStyle(
-                      color: Colors.grey,
-                    ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Text('응답을 기다리는 중...'),
+                    ],
                   ),
                 ),
               ),
 
+            // Error message + Retry button
+            if (_hasError)
+              Container(
+                margin: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '오류가 발생했습니다.',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    const Text(
+                      '요청을 처리할 수 없습니다. 다시 시도해 주세요.',
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        onPressed: _retry,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Input bar
             Container(
               padding: const EdgeInsets.fromLTRB(
                 12,
@@ -223,9 +325,7 @@ class _Bubble extends StatelessWidget {
               : colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Text(
-          message.text,
-        ),
+        child: Text(message.text),
       ),
     );
   }
